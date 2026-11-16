@@ -1,0 +1,56 @@
+name: Telegram to DingTalk relay
+
+on:
+  # Avoid the start of the hour, when GitHub notes that scheduled jobs are more
+  # likely to be delayed. GitHub's shortest supported interval is five minutes.
+  schedule:
+    - cron: '3-58/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      initial_sync_mode:
+        description: "For a deliberate first run only: skip existing posts or send recent ones"
+        required: false
+        default: skip
+        type: choice
+        options:
+          - skip
+          - send_recent
+
+permissions:
+  contents: read
+
+# A late schedule must not overlap a still-running one. Durable deduplication
+# remains in Supabase in case GitHub ever retries a job.
+concurrency:
+  group: telegram-dingtalk-relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out relay code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --no-input -r requirements.txt
+
+      - name: Relay new Telegram posts to DingTalk
+        run: python relay.py
+        env:
+          TG_CHANNEL: ${{ secrets.TG_CHANNEL }}
+          DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
+          DINGTALK_SIGNING_SECRET: ${{ secrets.DINGTALK_SIGNING_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          # Scheduled runs safely skip history by default. A manual run may opt
+          # into one bounded recent-post backfill to validate the delivery path.
+          INITIAL_SYNC_MODE: ${{ inputs.initial_sync_mode || vars.INITIAL_SYNC_MODE || 'skip' }}
