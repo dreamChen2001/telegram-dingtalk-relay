@@ -442,8 +442,13 @@ async def run_relay() -> None:
             await store.initialise_state(config.relay_key, 0)
             messages = current_page[-config.initial_history_limit :]
         else:
-            messages = await fetch_messages_after(
-                http, config.tg_channel, state.last_message_id, config.public_preview_max_pages
+            # Await the pagination coroutine before limiting its result.  Without
+            # these parentheses, Python tries to slice the coroutine object
+            # first, which only affects scheduled (post-initialisation) runs.
+            messages = (
+                await fetch_messages_after(
+                    http, config.tg_channel, state.last_message_id, config.public_preview_max_pages
+                )
             )[: config.max_messages_per_run]
 
         delivered_count = await relay_messages(config, store, notifier, messages)
