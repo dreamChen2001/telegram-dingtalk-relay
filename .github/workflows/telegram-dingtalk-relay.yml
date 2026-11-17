@@ -2,9 +2,10 @@ name: Telegram to DingTalk relay
 
 on:
   # Avoid the start of the hour, when GitHub notes that scheduled jobs are more
-  # likely to be delayed. GitHub's shortest supported interval is five minutes.
+  # likely to be delayed. Keep the five-minute slots explicit: apart from being
+  # easy to audit, changing the cron text re-registers a stopped schedule.
   schedule:
-    - cron: '3-58/5 * * * *'
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
   workflow_dispatch:
     inputs:
       initial_sync_mode:
