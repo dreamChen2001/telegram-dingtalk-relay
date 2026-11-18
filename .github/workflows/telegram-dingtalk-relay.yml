@@ -1,11 +1,8 @@
-name: Telegram to DingTalk relay
+name: Telegram to DingTalk relay (manual recovery)
 
 on:
-  # Avoid the start of the hour, when GitHub notes that scheduled jobs are more
-  # likely to be delayed. Keep the five-minute slots explicit: apart from being
-  # easy to audit, changing the cron text re-registers a stopped schedule.
-  schedule:
-    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
+  # Supabase Cron is the production scheduler. Keep this workflow only for an
+  # explicit operator-run backfill or recovery, using the same durable cursor.
   workflow_dispatch:
     inputs:
       initial_sync_mode:
@@ -20,8 +17,7 @@ on:
 permissions:
   contents: read
 
-# A late schedule must not overlap a still-running one. Durable deduplication
-# remains in Supabase in case GitHub ever retries a job.
+# Durable deduplication remains in Supabase if an operator retries a run.
 concurrency:
   group: telegram-dingtalk-relay
   cancel-in-progress: false
