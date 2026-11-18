@@ -1,6 +1,6 @@
 # Telegram 公开频道 → 钉钉转发器
 
-这是一个零持续费用的个人提醒工具：Supabase Cron 每五分钟唤醒一条
+这是一个零持续费用的个人提醒工具：Supabase Cron 每 30 秒唤醒一条
 Edge Function，读取公开 Telegram 频道预览页，并把尚未投递的帖子推送到
 钉钉群机器人。
 
@@ -9,7 +9,7 @@ Edge Function，读取公开 Telegram 频道预览页，并把尚未投递的帖
 Supabase，数据库只保存消息 ID、时间、公开链接和投递状态。
 
 ```text
-Supabase Cron（每 5 分钟）
+Supabase Cron（每 30 秒）
   → Edge Function
   → https://t.me/s/<频道用户名>
   → Supabase 去重游标 / 投递账本
@@ -80,7 +80,7 @@ GitHub 对公开仓库定时工作流的触发可靠性。
 粘贴到 SQL Editor，把两个占位符分别替换为与 `RELAY_CRON_SECRET` 相同的值和
 项目的 publishable API key 后执行。迁移会启用 `pg_cron` / `pg_net`、把这些
 调用所需的值写入 Supabase Vault，并创建名为
-`telegram-dingtalk-relay-edge` 的五分钟任务。模板可以安全重跑。
+`telegram-dingtalk-relay-edge` 的 30 秒任务。模板可以安全重跑。
 
 ## 手动应急补发
 
@@ -98,7 +98,7 @@ tsc --noEmit --strict --target ES2022 --lib ES2022,DOM \
 
 ## 限制与恢复行为
 
-- 最短轮询间隔为五分钟；它不是秒级或商业 SLA 告警系统。
+- 当前轮询间隔为 30 秒；它不是秒级或商业 SLA 告警系统。
 - 每次运行都会从游标之后分页补拉公开帖子。若积压大于
   `PUBLIC_PREVIEW_MAX_PAGES`，函数会失败且不前移游标，避免静默丢帖。
 - 函数逐条建立投递账本，发送失败会保留为失败状态，下一次运行会重试；已经
