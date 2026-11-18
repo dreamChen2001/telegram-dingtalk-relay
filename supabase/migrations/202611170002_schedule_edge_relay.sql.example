@@ -13,7 +13,7 @@ create extension if not exists pg_net with schema extensions;
 do $migration$
 begin
   -- The existence checks make this safe to re-run.  cron.schedule performs an
-  -- upsert by job name, so it also repairs the intended five-minute schedule.
+  -- upsert by job name, so it also repairs the intended 30-second schedule.
   if not exists (
     select 1 from vault.secrets where name = 'telegram_dingtalk_relay_cron_secret'
   ) then
@@ -36,7 +36,7 @@ begin
 
   perform cron.schedule(
     'telegram-dingtalk-relay-edge',
-    '*/5 * * * *',
+    '30 seconds',
     $cron$
       select net.http_post(
         url := 'https://qjthjwrbamafezialgzh.supabase.co/functions/v1/telegram-dingtalk-relay',
