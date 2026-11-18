@@ -1,0 +1,64 @@
+-- Run this only after deploying the `telegram-dingtalk-relay` Edge Function
+-- and creating its RELAY_CRON_SECRET Function Secret.
+--
+-- Replace the two marked values locally in the Supabase SQL Editor.  Do not
+-- commit either value. The publishable key is required by the Edge gateway;
+-- the function independently validates x-relay-cron-secret before doing work.
+
+create extension if not exists pg_cron with schema pg_catalog;
+grant usage on schema cron to postgres;
+grant all privileges on all tables in schema cron to postgres;
+create extension if not exists pg_net with schema extensions;
+
+do $migration$
+begin
+  -- The existence checks make this safe to re-run.  cron.schedule performs an
+  -- upsert by job name, so it also repairs the intended five-minute schedule.
+  if not exists (
+    select 1 from vault.secrets where name = 'telegram_dingtalk_relay_cron_secret'
+  ) then
+    perform vault.create_secret(
+      'REPLACE_WITH_THE_SAME_RELAY_CRON_SECRET',
+      'telegram_dingtalk_relay_cron_secret',
+      'Header secret for the Telegram to DingTalk relay schedule'
+    );
+  end if;
+
+  if not exists (
+    select 1 from vault.secrets where name = 'telegram_dingtalk_relay_api_key'
+  ) then
+    perform vault.create_secret(
+      'REPLACE_WITH_PROJECT_PUBLISHABLE_KEY',
+      'telegram_dingtalk_relay_api_key',
+      'Supabase publishable key used only by the relay cron request'
+    );
+  end if;
+
+  perform cron.schedule(
+    'telegram-dingtalk-relay-edge',
+    '*/5 * * * *',
+    $cron$
+      select net.http_post(
+        url := 'https://qjthjwrbamafezialgzh.supabase.co/functions/v1/telegram-dingtalk-relay',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'apikey', (
+            select decrypted_secret
+            from vault.decrypted_secrets
+            where name = 'telegram_dingtalk_relay_api_key'
+            limit 1
+          ),
+          'x-relay-cron-secret', (
+            select decrypted_secret
+            from vault.decrypted_secrets
+            where name = 'telegram_dingtalk_relay_cron_secret'
+            limit 1
+          )
+        ),
+        body := '{"source":"supabase-cron"}'::jsonb,
+        timeout_milliseconds := 120000
+      );
+    $cron$
+  );
+end
+$migration$;
